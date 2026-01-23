@@ -1,4 +1,4 @@
-name: Docker Build Pipeline monkci
+name: Docker Build Pipeline github
 # this is the change
 
 on:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   docker-build:
-    runs-on: monkci-ubuntu-24.04-4
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
