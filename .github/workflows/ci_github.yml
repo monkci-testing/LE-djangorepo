@@ -1,4 +1,4 @@
-name: Docker Build Pipeline github
+name: Docker Build  github
 # this is the change
 
 on:
