@@ -1,0 +1,44 @@
+name: CI Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  benchmark:
+    name: "VM Job ${{ matrix.id }}"
+    runs-on: monkci-ubuntu-24.04-4
+    strategy:
+      fail-fast: false
+      matrix:
+        id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    steps:
+      - name: Keep VM alive (~5 mins via apt installs)
+        run: |
+          echo "=== Job ${{ matrix.id }} starting ==="
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            git \
+            unzip \
+            jq \
+            htop \
+            vim \
+            net-tools \
+            dnsutils \
+            iputils-ping \
+            lsof \
+            strace \
+            sysstat \
+            tree \
+            tmux \
+            ca-certificates \
+            gnupg \
+            lsb-release \
+            software-properties-common \
+            apt-transport-https
+          echo "=== Job ${{ matrix.id }} done ==="
