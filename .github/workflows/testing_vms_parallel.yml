@@ -1,9 +1,7 @@
-name: CI Benchmark
+name: Testing concurrency
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, master]
 
 jobs:
   benchmark:
