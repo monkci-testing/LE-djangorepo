@@ -6,7 +6,7 @@ on:
 jobs:
   benchmark:
     name: "VM Job ${{ matrix.id }}"
-    runs-on: monkci-ubuntu-24.04-4
+    runs-on: monkci-ubuntu-24.04-2
     strategy:
       fail-fast: false
       matrix:
