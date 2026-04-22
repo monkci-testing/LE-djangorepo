@@ -177,8 +177,8 @@ jobs:
 
       - name: Verify install
         run: |
-          python -c "import django; print(f'Django {django.__version__}')"
-          python -c "import celery; print(f'Celery {celery.__version__}')"
+          python3 -c "import django; print(f'Django {django.__version__}')"
+          python3 -c "import celery; print(f'Celery {celery.__version__}')"
 
   ## 7. Checkout + Pip Install (with actions/cache) — MonkCI
   monkci-pip-cached:
