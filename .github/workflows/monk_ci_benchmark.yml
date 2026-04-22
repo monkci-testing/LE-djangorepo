@@ -232,6 +232,7 @@ jobs:
           context: .
           tags: ${{ env.DOCKER_IMAGE_NAME }}:no-cache
           no-cache: true
+          load: true
 
   ## 9. Docker Build (MonkCI cache) — MonkCI
   monkci-docker-cached:
