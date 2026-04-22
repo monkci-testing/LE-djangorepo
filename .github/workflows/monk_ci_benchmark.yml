@@ -1,0 +1,347 @@
+# .github/workflows/ci-benchmark.yml
+name: CI Runner Benchmark - Ubuntu vs MonkCI
+
+on:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  DOCKER_IMAGE_NAME: benchmark-app
+
+# ─────────────────────────────────────────────
+#  UBUNTU-LATEST JOBS
+# ─────────────────────────────────────────────
+jobs:
+
+  ## 1. Checkout + Pip Install (no cache) — ubuntu-latest
+  ubuntu-pip-no-cache:
+    name: "[Ubuntu] Pip Install (No Cache)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies (no cache)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify install
+        run: |
+          python -c "import django; print(f'Django {django.__version__}')"
+          python -c "import celery; print(f'Celery {celery.__version__}')"
+
+  ## 2. Checkout + Pip Install (with actions/cache) — ubuntu-latest
+  ubuntu-pip-cached:
+    name: "[Ubuntu] Pip Install (actions/cache)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies (cached)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify install
+        run: |
+          python -c "import django; print(f'Django {django.__version__}')"
+          python -c "import celery; print(f'Celery {celery.__version__}')"
+
+  ## 3. Docker Build (no cache) — ubuntu-latest
+  ubuntu-docker-no-cache:
+    name: "[Ubuntu] Docker Build (No Cache)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:no-cache
+          no-cache: true
+
+  ## 4. Docker Build (with GHA cache) — ubuntu-latest
+  ubuntu-docker-cached:
+    name: "[Ubuntu] Docker Build (GHA Cache)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (first build)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:cached
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build image again (should be cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:cached-2
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  ## 5. Full pipeline — ubuntu-latest
+  ubuntu-full-pipeline:
+    name: "[Ubuntu] Full Pipeline"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-full-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-full-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run linting
+        run: |
+          flake8 --version
+          black --version
+          isort --version
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:full
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ─────────────────────────────────────────────
+#  MONKCI RUNNER JOBS
+# ─────────────────────────────────────────────
+
+  ## 6. Checkout + Pip Install (no cache) — MonkCI
+  monkci-pip-no-cache:
+    name: "[MonkCI] Pip Install (No Cache)"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies (no cache)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify install
+        run: |
+          python -c "import django; print(f'Django {django.__version__}')"
+          python -c "import celery; print(f'Celery {celery.__version__}')"
+
+  ## 7. Checkout + Pip Install (with actions/cache) — MonkCI
+  monkci-pip-cached:
+    name: "[MonkCI] Pip Install (actions/cache)"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies (cached)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify install
+        run: |
+          python -c "import django; print(f'Django {django.__version__}')"
+          python -c "import celery; print(f'Celery {celery.__version__}')"
+
+  ## 8. Docker Build (no cache) — MonkCI
+  monkci-docker-no-cache:
+    name: "[MonkCI] Docker Build (No Cache)"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Builder
+        uses: MonkCi-Inc/setup-docker-builder@v1
+
+      - name: Verify builder
+        run: |
+          echo "Builder: $MONKCI_BUILDER"
+          docker buildx ls
+          mount | grep monkci || echo "No monkci mount found"
+
+      - name: Build image (no cache)
+        uses: MonkCi-Inc/build-push-action@v1
+        with:
+          context: .
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:no-cache
+          no-cache: true
+
+  ## 9. Docker Build (MonkCI cache) — MonkCI
+  monkci-docker-cached:
+    name: "[MonkCI] Docker Build (MonkCI Cache)"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Builder
+        uses: MonkCi-Inc/setup-docker-builder@v1
+
+      - name: Verify builder
+        run: |
+          echo "Builder: $MONKCI_BUILDER"
+          docker buildx ls
+          mount | grep monkci || echo "No monkci mount found"
+
+      - name: Build image (first build)
+        uses: MonkCi-Inc/build-push-action@v1
+        with:
+          context: .
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:cached
+
+      - name: Build image again (should be cached)
+        uses: MonkCi-Inc/build-push-action@v1
+        with:
+          context: .
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:cached-2
+
+  ## 10. Full pipeline — MonkCI
+  monkci-full-pipeline:
+    name: "[MonkCI] Full Pipeline"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-full-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-full-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run linting
+        run: |
+          flake8 --version
+          black --version
+          isort --version
+
+      - name: Setup Docker Builder
+        uses: MonkCi-Inc/setup-docker-builder@v1
+
+      - name: Build Docker image
+        uses: MonkCi-Inc/build-push-action@v1
+        with:
+          context: .
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:full
+
+# ─────────────────────────────────────────────
+#  SUMMARY
+# ─────────────────────────────────────────────
+
+  summary:
+    name: "Benchmark Summary"
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - ubuntu-pip-no-cache
+      - ubuntu-pip-cached
+      - ubuntu-docker-no-cache
+      - ubuntu-docker-cached
+      - ubuntu-full-pipeline
+      - monkci-pip-no-cache
+      - monkci-pip-cached
+      - monkci-docker-no-cache
+      - monkci-docker-cached
+      - monkci-full-pipeline
+    steps:
+      - name: Print summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = [
+              { name: 'Pip No Cache',    ubuntu: '${{ needs.ubuntu-pip-no-cache.result }}',    monkci: '${{ needs.monkci-pip-no-cache.result }}' },
+              { name: 'Pip Cached',      ubuntu: '${{ needs.ubuntu-pip-cached.result }}',      monkci: '${{ needs.monkci-pip-cached.result }}' },
+              { name: 'Docker No Cache', ubuntu: '${{ needs.ubuntu-docker-no-cache.result }}', monkci: '${{ needs.monkci-docker-no-cache.result }}' },
+              { name: 'Docker Cached',   ubuntu: '${{ needs.ubuntu-docker-cached.result }}',   monkci: '${{ needs.monkci-docker-cached.result }}' },
+              { name: 'Full Pipeline',   ubuntu: '${{ needs.ubuntu-full-pipeline.result }}',   monkci: '${{ needs.monkci-full-pipeline.result }}' },
+            ];
+
+            const icon = (s) => s === 'success' ? '✅' : s === 'failure' ? '❌' : '⏭️';
+
+            let table = '| Test | Ubuntu Latest | MonkCI Runner |\n|------|--------------|---------------|\n';
+            for (const j of jobs) {
+              table += `| ${j.name} | ${icon(j.ubuntu)} ${j.ubuntu} | ${icon(j.monkci)} ${j.monkci} |\n`;
+            }
+
+            await core.summary
+              .addHeading('🏁 CI Runner Benchmark Results')
+              .addRaw(table)
+              .addRaw('\n> Compare job durations in the Actions tab to see timing differences.\n')
+              .write();
