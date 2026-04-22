@@ -172,8 +172,8 @@ jobs:
 
       - name: Install dependencies (no cache)
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
 
       - name: Verify install
         run: |
@@ -202,13 +202,13 @@ jobs:
 
       - name: Install dependencies (cached)
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
 
       - name: Verify install
         run: |
-          python -c "import django; print(f'Django {django.__version__}')"
-          python -c "import celery; print(f'Celery {celery.__version__}')"
+          python3 -c "import django; print(f'Django {django.__version__}')"
+          python3 -c "import celery; print(f'Celery {celery.__version__}')"
 
   ## 8. Docker Build (no cache) — MonkCI
   monkci-docker-no-cache:
@@ -283,8 +283,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
 
       - name: Run linting
         run: |
