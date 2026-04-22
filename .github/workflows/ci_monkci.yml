@@ -23,8 +23,3 @@ jobs:
           context: .
           tags: test:latest
 
-      - name: Build again (should be cached)
-        uses: MonkCi-Inc/build-push-action@v1
-        with:
-          context: .
-          tags: test:cached
