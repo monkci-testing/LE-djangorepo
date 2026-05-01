@@ -1,0 +1,111 @@
+name: Monk CI Security Evaluation
+
+on:
+  workflow_dispatch:   # run manually from the Actions tab
+
+jobs:
+  test-1-drop-marker:
+    name: "Test 1a — Drop marker files"
+    runs-on: monkci-ubuntu-24.04-4   # <-- change to whatever Monk CI tells you to use
+    steps:
+      - name: Write markers
+        run: |
+          MARKER="monk-test-$(date +%s)-$RANDOM"
+          echo "$MARKER" | tee /tmp/marker.txt
+          echo "$MARKER" | tee $HOME/.marker.txt
+          sudo bash -c "echo $MARKER > /var/marker.txt"
+          echo "Marker written: $MARKER"
+
+  test-1-check-marker:
+    name: "Test 1b — Check if markers survived"
+    needs: test-1-drop-marker
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - name: Look for leftovers from previous job
+        run: |
+          echo "=== /tmp/marker.txt ==="
+          cat /tmp/marker.txt 2>/dev/null && echo "LEAK: state survived between jobs" || echo "OK: clean"
+          echo "=== \$HOME/.marker.txt ==="
+          cat $HOME/.marker.txt 2>/dev/null && echo "LEAK: home dir not cleared" || echo "OK: clean"
+          echo "=== /var/marker.txt ==="
+          cat /var/marker.txt 2>/dev/null && echo "LEAK: system files persisted" || echo "OK: clean"
+
+  test-2-memory-exposure:
+    name: "Test 2 — Can a job read secrets from runner memory?"
+    runs-on: monkci-ubuntu-24.04-4
+    env:
+      CANARY_SECRET: ${{ secrets.CANARY_SECRET }}
+    steps:
+      - name: Try Trivy-style memory dump
+        run: |
+          pid=$(pgrep -f Runner.Worker | head -1)
+          if [ -z "$pid" ]; then
+            echo "Runner.Worker process not found — different runner architecture"
+            exit 0
+          fi
+          echo "Found Runner.Worker PID: $pid"
+          echo "=== Searching runner memory for secrets ==="
+          sudo grep -ao '{"value":"[^"]*","isSecret":true}' /proc/$pid/mem 2>/dev/null | head -10 \
+            && echo "EXPOSED: secrets readable from runner memory (same as GitHub-hosted)" \
+            || echo "PROTECTED: memory not dumpable (unusual — investigate why)"
+
+  test-3-egress:
+    name: "Test 3 — Is outbound traffic restricted?"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - name: Probe arbitrary destinations
+        run: |
+          echo "=== Testing common destinations ==="
+          for host in example.com cloudflare.com github.com pastebin.com transfer.sh; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://$host || echo "BLOCKED")
+            echo "$host -> $code"
+          done
+          echo ""
+          echo "=== Testing raw IP (Trivy C2 IP, harmless probe) ==="
+          timeout 5 bash -c "</dev/tcp/45.148.10.212/443" 2>&1 \
+            && echo "OPEN: arbitrary IPs reachable" \
+            || echo "BLOCKED or filtered"
+
+  test-4-persistence-paths:
+    name: "Test 4a — Plant persistence canaries"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - name: Write to common persistence locations
+        run: |
+          mkdir -p $HOME/.config/systemd/user
+          echo "canary-$(date +%s)" > $HOME/.config/systemd/user/canary.txt
+          echo "canary-$(date +%s)" >> $HOME/.bashrc
+          echo "canary-$(date +%s)" >> $HOME/.profile
+          sudo bash -c "echo canary > /usr/local/bin/canary.sh" || true
+          echo "Persistence canaries written"
+
+  test-4-check-persistence:
+    name: "Test 4b — Check if persistence survived"
+    needs: test-4-persistence-paths
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - name: Look for leftover canaries
+        run: |
+          echo "=== systemd user dir ==="
+          ls -la $HOME/.config/systemd/user/ 2>/dev/null || echo "clean"
+          echo "=== bashrc ==="
+          grep canary $HOME/.bashrc 2>/dev/null && echo "LEAK" || echo "OK: clean"
+          echo "=== /usr/local/bin ==="
+          ls /usr/local/bin/canary.sh 2>/dev/null && echo "LEAK" || echo "OK: clean"
+
+  test-5-token-scope:
+    name: "Test 5 — What permissions does GITHUB_TOKEN actually have?"
+    runs-on: monkci-ubuntu-24.04-4
+    steps:
+      - name: Decode token claims
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The runtime ID token tells you what scopes this job actually has
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Token permissions are visible in the job summary; check the workflow's 'permissions:' block"
+          # Quick sanity: can the token list the repo?
+          curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }} \
+            | grep -E '"(full_name|private|permissions)"' | head -10
