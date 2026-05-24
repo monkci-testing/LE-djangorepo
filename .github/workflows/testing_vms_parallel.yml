@@ -6,11 +6,11 @@ on:
 jobs:
   benchmark:
     name: "VM Job ${{ matrix.id }}"
-    runs-on: monkci-ubuntu-24.04-2
+    runs-on: monkci-ubuntu-24.04-4
     strategy:
       fail-fast: false
       matrix:
-        id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        id: [1, 2, 3]
 
     steps:
       - name: Keep VM alive (~5 mins via apt installs)
